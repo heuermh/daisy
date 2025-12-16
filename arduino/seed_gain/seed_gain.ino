@@ -69,10 +69,13 @@ void audio(float **in, float **out, size_t size) {
     writeLed(PIN_LED_2, (pot_3 + pot_2) / 2);
   }
 
-  // pass through audio
+  // map pot_2 to gain
+  float gain = mapf(pot_2, 0.0f, 1023.0f, 0.0f, 1.8f);
+
+  // apply gain, soft clip
   for (size_t i = 0; i < size; i++) {
-    out[0][i] = in[0][i];
-    out[1][i] = in[1][i];
+    out[0][i] = softClip(in[0][i] * gain);
+    out[1][i] = softClip(in[1][i] * gain);
   }
 }
 
@@ -83,7 +86,7 @@ void setup() {
   pinMode(PIN_FS_1, INPUT_PULLUP);
 
   // initialize daisy hardware
-  seed = DAISY.init(DAISY_SEED, AUDIO_SR_48K);
+  seed = DAISY.init(DAISY_SEED, AUDIO_SR_96K);
 
   // register audio callback
   DAISY.begin(audio);
@@ -101,4 +104,18 @@ uint32_t readPot(int32_t pin) {
 
 void writeLed(int32_t pin, int32_t value) {
   analogWrite(pin, constrain(value / 4, 0, 255));
+}
+
+float softClip(float x) {
+  if (x < -3.0f) {
+    return -1.0f;
+	}
+  else if (x > 3.0f) {
+    return 1.0f;
+  }
+  return x * (27.0f + x * x) / (27.0f + 9.0f * x * x);
+}
+
+float mapf(float x, float in_min, float in_max, float out_min, float out_max) {
+  return (x - in_min) * (out_max - out_min) / (in_max - in_min) + out_min;
 }
