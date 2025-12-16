@@ -76,8 +76,8 @@ void loop() {
     writeLed(PIN_LED_2, 0);
   }
   else if (sw_1 == HIGH) {
-    writeLed(PIN_LED_1, pot_1 + pot_2);
-    writeLed(PIN_LED_2, pot_3 + pot_2);
+    writeLed(PIN_LED_1, (pot_1 + pot_2) / 2);
+    writeLed(PIN_LED_2, (pot_3 + pot_2) / 2);
   }
 
   Serial.print(sw_1);
