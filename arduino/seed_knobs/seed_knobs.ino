@@ -91,7 +91,7 @@ void loop() {
 }
 
 int readSwitch(int32_t pin) {
-  return digitalRead(PIN_SW_1);
+  return digitalRead(pin);
 }
 
 uint32_t readPot(int32_t pin) {
