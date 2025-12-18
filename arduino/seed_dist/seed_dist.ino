@@ -180,7 +180,7 @@ float ribbonDist(float x) {
 float softClip(float x) {
   if (x < -3.0f) {
     return -1.0f;
-	}
+  }
   else if (x > 3.0f) {
     return 1.0f;
   }

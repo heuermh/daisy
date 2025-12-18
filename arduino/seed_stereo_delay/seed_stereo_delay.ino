@@ -20,8 +20,20 @@
 
 */
 #include "DaisyDuino.h"
+#include "slew.h"
 
 DaisyHardware seed;
+
+Slew delayTime;
+Slew mix;
+Slew feedback;
+
+#define MAX_DELAY static_cast<size_t>(96000 * 0.6f)
+static DelayLine<float, MAX_DELAY> delayLine_l;
+static DelayLine<float, MAX_DELAY> delayLine_r;
+
+#define MAX_GAIN 1.2f
+#define MAX_FEEDBACK 1.2f
 
 /*
 
@@ -69,13 +81,30 @@ void audio(float **in, float **out, size_t size) {
     writeLed(PIN_LED_2, (pot_3 + pot_2) / 2);
   }
 
-  // map pot_2 to gain
-  float gain = mapf(pot_2, 0.0f, 1023.0f, 0.0f, 1.8f);
+  // slew pot_1 to time, pot_2 to mix, and pot_3 to feedback
+  float t = delayTime.Process(mapf(pot_1, 0.0f, 1023.0f, 0.0f, 1.0f));
+  float m = mix.Process(mapf(pot_2, 0.0f, 1023.0f, 0.0, MAX_GAIN));
+  float f = feedback.Process(mapf(pot_3, 0.0f, 1023.0f, 0.0f, MAX_FEEDBACK));
 
-  // apply gain, soft clip
+  delayLine.SetDelay(t * MAX_DELAY);
+
   for (size_t i = 0; i < size; i++) {
-    out[0][i] = softClip(in[0][i] * gain);
-    out[1][i] = softClip(in[1][i] * gain);
+
+    // read dry from input
+    float dry_l = in[0][i];
+    float dry_r = in[1][i];
+
+    // read wet from delay line
+    float wet_l = delayLine_l.Read();
+    float wet_r = delayLine_r.Read();
+
+    // write to delay line, with feedback
+    delayLine_l.Write((wet_l * f) + dry_l);
+    delayLine_r.Write((wet_r * f) + dry_r);
+
+    // mix wet and dry and soft clip
+    out[0][i] = softClip(wet_l * m + dry_l * (MAX_GAIN - m));
+    out[1][i] = softClip(wet_r * m + dry_r * (MAX_GAIN - m));
   }
 }
 
@@ -87,6 +116,16 @@ void setup() {
 
   // initialize daisy hardware
   seed = DAISY.init(DAISY_SEED, AUDIO_SR_96K);
+
+  delayTime.Init();
+  mix.Init();
+  feedback.Init();
+
+  delayLine_l.Init();
+  delayLine_l.SetDelay(MAX_DELAY);
+
+  delayLine_r.Init();
+  delayLine_r.SetDelay(MAX_DELAY);
 
   // register audio callback
   DAISY.begin(audio);
