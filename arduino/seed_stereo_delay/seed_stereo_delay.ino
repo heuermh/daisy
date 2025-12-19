@@ -86,7 +86,8 @@ void audio(float **in, float **out, size_t size) {
   float m = mix.Process(mapf(pot_2, 0.0f, 1023.0f, 0.0, MAX_GAIN));
   float f = feedback.Process(mapf(pot_3, 0.0f, 1023.0f, 0.0f, MAX_FEEDBACK));
 
-  delayLine.SetDelay(t * MAX_DELAY);
+  delayLine_l.SetDelay(t * MAX_DELAY);
+  delayLine_r.SetDelay(t * MAX_DELAY);
 
   for (size_t i = 0; i < size; i++) {
 
