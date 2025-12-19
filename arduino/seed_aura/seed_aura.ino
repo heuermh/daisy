@@ -26,7 +26,7 @@ DaisyHardware seed;
 #define DEPTH_HZ 400.0f
 #define MIN_FREQ_HZ 200.0f
 #define MIN_LFO_RATE_HZ 0.001f
-#define MAX_LFO_RATE_HZ 100.0f
+#define MAX_LFO_RATE_HZ 400.0f
 
 MoogLadder lpf_l;
 MoogLadder lpf_r;
@@ -69,28 +69,44 @@ void audio(float **in, float **out, size_t size) {
   uint32_t pot_2 = readPot(PIN_POT_2);
   uint32_t pot_3 = readPot(PIN_POT_3);
 
-  // analog write to leds
-  if (sw_1 == LOW) {
-    writeLed(PIN_LED_1, 0);
-    writeLed(PIN_LED_2, 0);
-  }
-  else if (sw_1 == HIGH) {
-    writeLed(PIN_LED_1, (pot_1 + pot_2) / 2);
-    writeLed(PIN_LED_2, (pot_3 + pot_2) / 2);
-  }
+  // analog write to led 1
+  writeLed(PIN_LED_1, pot_1 * 0.66f + pot_2 * 0.33f);
 
   // map pot_1 to presence
   float presence = mapf(pot_1, 0.0f, 1023.0f, 0.0f, 1.0f);
   // map pot_2 to gain
   float gain = mapf(pot_2, 0.0f, 1023.0f, 0.0f, 1.8f);
-  // map pot_3 to lfo rate
-  float lfoRate = mapf(pot_3, 0.0f, 1023.0f, MIN_LFO_RATE_HZ, MAX_LFO_RATE_HZ);
 
-  lfo_l.SetFreq(lfoRate);
-  lfo_r.SetFreq(lfoRate);
+  if (sw_1 == LOW) {
 
-  lpf_l.SetFreq(MIN_FREQ_HZ + (DEPTH_HZ / 2.0f) + lfo_l.Process());
-  lpf_r.SetFreq(MIN_FREQ_HZ + (DEPTH_HZ / 2.0f) + + lfo_r.Process());
+    // map pot_3 to freq
+    float freq = mapf(pot_3, 0.0f, 1023.0f, 30.0f, 3000.0f);
+
+    // analog write to led 2
+    writeLed(PIN_LED_2, pot_3 * 0.66f + pot_2 * 0.33f);
+
+    // set filter frequency
+    lpf_l.SetFreq(freq);
+    lpf_r.SetFreq(freq);
+  }
+  else if (sw_1 == HIGH) {
+
+    // map pot_3 to lfo rate
+    float lfoRate = mapf(pot_3, 0.0f, 1023.0f, MIN_LFO_RATE_HZ, MAX_LFO_RATE_HZ);
+
+    // update lfo rate
+    lfo_l.SetFreq(lfoRate);
+    lfo_r.SetFreq(lfoRate);
+    float v_l = lfo_l.Process();
+    float v_r = lfo_r.Process();
+
+    // analog write to led 2
+    writeLed(PIN_LED_2, mapf(v_l, -1.0f * DEPTH_HZ, DEPTH_HZ, 0.0f, 1.0f) * 1023.0f);
+
+    // set filter frequency
+    lpf_l.SetFreq(MIN_FREQ_HZ + (DEPTH_HZ / 2.0f) + v_l);
+    lpf_r.SetFreq(MIN_FREQ_HZ + (DEPTH_HZ / 2.0f) + v_r);
+  }
 
   // apply gain, presence, soft clip
   for (size_t i = 0; i < size; i++) {
