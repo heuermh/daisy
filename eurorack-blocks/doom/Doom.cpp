@@ -81,10 +81,10 @@ void Doom::process() {
     // _offset _index
     int i = _index + _offset;
     if (i > 255) {
-      i = i % 255;
+      i = i % 256;
     }
     if (i < 0) {
-      i = 256 + (i % 255);
+      i = 256 + (i % 256);
     }
 
     float low = -1.0f;
