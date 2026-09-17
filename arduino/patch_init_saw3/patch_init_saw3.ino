@@ -171,5 +171,5 @@ float detune(float d) {
   else if (d >= 1.0f) {
     return 1.0f;
   }
-  return 0.9f * d * d * d * d * d * d * d * d * d - 0.02f * d * d * d + 0.18f * d + 0.003f;
+  return 0.9f * d * d * d * d * d * d * d * d * d + 0.02f * d * d * d + 0.18f * d + 0.003f;
 }
