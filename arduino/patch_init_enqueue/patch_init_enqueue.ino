@@ -32,7 +32,6 @@ static uint8_t queue = 0;
 const uint8_t MAX_QUEUE = 8;
 
 void setup() {
-  Serial.begin(9600);
 
   // initialize hardware
   patch = DAISY.init(DAISY_PATCH_SM);
