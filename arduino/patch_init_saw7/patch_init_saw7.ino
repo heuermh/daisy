@@ -216,7 +216,7 @@ float sideMix(float m) {
     return 0.0f;
   }
   else if (m > 1.0f) {
-    return 0.5508972f;
+    return 0.590832f;
   }
   return -0.73764 * m * m + 1.2841f * m + 0.044372f;
 }
