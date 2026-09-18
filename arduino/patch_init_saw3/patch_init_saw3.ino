@@ -53,8 +53,8 @@ void audioCallback(float** in, float** out, size_t size) {
   digitalWrite(PIN_PATCH_SM_CV_OUT_2, (pressed || gate));
 
   // 0.0f to 1.0f
-  float tunePot = roundf(patch.controls[0].Value() * 1000.0f) / 1000.0f; // truncate to 3 digits
-  float fineTunePot = roundf(patch.controls[1].Value() * 1000.0f) / 1000.0f; // truncate to 3 digits
+  float tunePot = truncf(patch.controls[0].Value()); // truncate to 3 digits
+  float fineTunePot = truncf(patch.controls[1].Value()); // truncate to 3 digits
   float detunePot = patch.controls[2].Value();
   float mixPot = patch.controls[3].Value();
 
@@ -122,6 +122,10 @@ void loop() {
 
 float vtof(float v) {  
 	return powf(2, v) * 261.625565f;
+}
+
+float truncf(float f) {
+  return roundf(f * 1000.0f) / 1000.0f;
 }
 
 float randomf() {
