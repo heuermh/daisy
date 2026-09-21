@@ -21,8 +21,17 @@
 */
 #include "DaisyDuino.h"
 
+//
+// Performance note
+// ---
+//
+// With optimize set to default (Smallest -Os), the waveform will show
+// noise every 1 ms. Set optimize to Fast -O1 or better.
+//
+
 DaisyHardware patch;
 Switch b7;
+Switch b8;
 
 Oscillator saw1;
 Oscillator saw2;
@@ -48,8 +57,11 @@ void audioCallback(float** in, float** out, size_t size) {
   patch.ProcessAllControls();
 
   b7.Debounce();
+  b8.Debounce();
+
   bool rising = b7.RisingEdge();
   bool pressed = b7.Pressed();
+  bool hard = b8.Pressed();
   bool trigger = patch.gateIns[0].Trig();
   bool gate = patch.gateIns[0].State();
 
@@ -133,7 +145,7 @@ void audioCallback(float** in, float** out, size_t size) {
 
   // process audio buffers
   for (size_t i = 0; i < size; i++) {
-    out[0][i] = out[1][i] =
+    float v =
       saw1.Process() +
       saw2.Process() +
       saw3.Process() +
@@ -141,6 +153,8 @@ void audioCallback(float** in, float** out, size_t size) {
       saw5.Process() +
       saw6.Process() +
       saw7.Process();
+
+    out[0][i] = out[1][i] = hard ? hardClip(v) : softClip(v);
   }
 }
 
@@ -153,7 +167,10 @@ void setup() {
   // b7, momentary button B7, trigger
   b7.Init(1000, true, PIN_PATCH_SM_B7, INPUT_PULLUP);
 
-   // initialize oscillators
+  // b8, toggle switch, hard clip/soft clip
+  b8.Init(1000, true, PIN_PATCH_SM_B8, INPUT_PULLUP);
+
+  // initialize oscillators
   saw1.Init(DAISY.AudioSampleRate());
   saw2.Init(DAISY.AudioSampleRate());
   saw3.Init(DAISY.AudioSampleRate());
@@ -181,7 +198,7 @@ void loop() {
 }
 
 float vtof(float v) {  
-	return powf(2, v) * 261.625565f;
+  return powf(2, v) * 261.625565f;
 }
 
 float truncf(float f) {
@@ -240,4 +257,24 @@ float detune(float d) {
     return 1.0f;
   }
   return 0.9f * d * d * d * d * d * d * d * d * d + 0.02f * d * d * d + 0.18f * d + 0.003f;
+}
+
+float hardClip(float x) {
+  if (x < -1.0f) {
+    return -1.0f;
+  }
+  else if (x > 1.0f) {
+    return 1.0f;
+  }
+  return x;
+}
+
+float softClip(float x) {
+  if (x < -3.0f) {
+    return -1.0f;
+  }
+  else if (x > 3.0f) {
+    return 1.0f;
+  }
+  return x * (27.0f + x * x) / (27.0f + 9.0f * x * x);
 }

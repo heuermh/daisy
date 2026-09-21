@@ -25,16 +25,20 @@ DaisyHardware patch;
 Switch b7;
 Switch b8;
 
+Oscillator saw2;
 Oscillator saw3;
 Oscillator saw4;
 Oscillator saw5;
+Oscillator saw6;
 
 // offsets and curves from Szabo
 // https://www.adamszabo.com/internet/adam_szabo_how_to_emulate_the_super_saw.pdf
 
+const float SAW2_OFFSET = -0.06288439f;
 const float SAW3_OFFSET = -0.01952356f;
 
 const float SAW5_OFFSET = 0.01991221f;
+const float SAW6_OFFSET = 0.06216538f;
 
 void audioCallback(float** in, float** out, size_t size) {
 
@@ -76,24 +80,30 @@ void audioCallback(float** in, float** out, size_t size) {
   // detune amount
   float d = detune(detunePot + detuneCv);
 
+  saw2.SetFreq((1.0f + (SAW2_OFFSET * d)) * f);
   saw3.SetFreq((1.0f + (SAW3_OFFSET * d)) * f);
   saw4.SetFreq(f);
   saw5.SetFreq((1.0f + (SAW5_OFFSET * d)) * f);
+  saw6.SetFreq((1.0f + (SAW6_OFFSET * d)) * f);
 
   // mix between center and sides
   float cm = centerMix(mixPot + mixCv);
   float sm = sideMix(mixPot + mixCv);
 
+  saw2.SetAmp(sm);
   saw3.SetAmp(sm);
   saw4.SetAmp(cm);
   saw5.SetAmp(sm);
+  saw6.SetAmp(sm);
 
   // process audio buffers
   for (size_t i = 0; i < size; i++) {
     float v =
+      saw2.Process() +
       saw3.Process() +
       saw4.Process() +
-      saw5.Process();
+      saw5.Process() +
+      saw6.Process();
 
     out[0][i] = out[1][i] = hard ? hardClip(v) : softClip(v);
   }
@@ -111,13 +121,17 @@ void setup() {
   b8.Init(1000, true, PIN_PATCH_SM_B8, INPUT_PULLUP);
 
   // initialize oscillators
+  saw2.Init(DAISY.AudioSampleRate());
   saw3.Init(DAISY.AudioSampleRate());
   saw4.Init(DAISY.AudioSampleRate());
   saw5.Init(DAISY.AudioSampleRate());
+  saw6.Init(DAISY.AudioSampleRate());
 
+  saw2.SetWaveform(Oscillator::WAVE_POLYBLEP_SAW);
   saw3.SetWaveform(Oscillator::WAVE_POLYBLEP_SAW);
   saw4.SetWaveform(Oscillator::WAVE_POLYBLEP_SAW);
   saw5.SetWaveform(Oscillator::WAVE_POLYBLEP_SAW);
+  saw6.SetWaveform(Oscillator::WAVE_POLYBLEP_SAW);
 
   // randomize initial phase
   randomizePhase();
@@ -142,10 +156,12 @@ float randomf() {
 }
 
 void randomizePhase() {
+  saw2.Reset(randomf());
   saw3.Reset(randomf());
   // do not change phase of saw4
   //saw4.Reset(randomf());
   saw5.Reset(randomf());
+  saw6.Reset(randomf());
 }
 
 // y = -0.55366*x + 0.99785
