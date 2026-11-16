@@ -39,28 +39,27 @@ AnalogControl freqBCv;
 AnalogControl freqCCv;
 AnalogControl resonanceCv;
 
-int filterMode;
+int filterMode = 0;
 float sampleRate;
 
-float freqA;
-float freqB;
-float freqC;
-float resonance;
+LadderFilter bandpassAL;
+LadderFilter bandpassBL;
+LadderFilter bandpassCL;
+LadderFilter bandpassAR;
+LadderFilter bandpassBR;
+LadderFilter bandpassCR;
 
-LadderFilter bandpassA;
-LadderFilter bandpassB;
-LadderFilter bandpassC;
-
-#define MIN_BANDPASS_A_FREQ_HZ 270.0f
-#define MAX_BANDPASS_A_FREQ_HZ 730.0f
-#define MIN_BANDPASS_B_FREQ_HZ 870.0f
-#define MAX_BANDPASS_B_FREQ_HZ 1990.0f
-#define MIN_BANDPASS_C_FREQ_HZ 2240.0f
-#define MAX_BANDPASS_C_FREQ_HZ 3010.0f
-#define MIN_RESONANCE 0.0f
-#define MAX_RESONANCE 1.8f
+constexpr float MIN_BANDPASS_A_FREQ_HZ = 270.0f;
+constexpr float MAX_BANDPASS_A_FREQ_HZ = 730.0f;
+constexpr float MIN_BANDPASS_B_FREQ_HZ = 870.0f;
+constexpr float MAX_BANDPASS_B_FREQ_HZ = 1990.0f;
+constexpr float MIN_BANDPASS_C_FREQ_HZ = 2240.0f;
+constexpr float MAX_BANDPASS_C_FREQ_HZ = 3010.0f;
+constexpr float MIN_RESONANCE = 0.0f;
+constexpr float MAX_RESONANCE = 1.8f;
 
 void toggleFilterMode();
+void setFilterMode(LadderFilter::FilterMode mode);
 float clampf(float min, float max, float x);
 float lerpf(float min, float max, float x);
 float hardClip(float x);
@@ -97,30 +96,36 @@ void audioCallback(AudioHandle::InputBuffer in, AudioHandle::OutputBuffer out, s
   // cv_out_2, C1 led on front panel
   hw.WriteCvOut(CV_OUT_2, hard ? 5.0f : 0.0f);
 
-  freqA = lerpf(MIN_BANDPASS_A_FREQ_HZ, MAX_BANDPASS_A_FREQ_HZ, clampf(0.0f, 1.0f, freqAPot.Value() + freqACv.Value()));
-  freqB = lerpf(MIN_BANDPASS_B_FREQ_HZ, MAX_BANDPASS_B_FREQ_HZ, clampf(0.0f, 1.0f, freqBPot.Value() + freqBCv.Value()));
-  freqC = lerpf(MIN_BANDPASS_C_FREQ_HZ, MAX_BANDPASS_C_FREQ_HZ, clampf(0.0f, 1.0f, freqCPot.Value() + freqCCv.Value()));
-  resonance = lerpf(MIN_RESONANCE, MAX_RESONANCE, clampf(0.0f, 1.0f, resonancePot.Value() + resonanceCv.Value()));
+  float freqA = lerpf(MIN_BANDPASS_A_FREQ_HZ, MAX_BANDPASS_A_FREQ_HZ, clampf(0.0f, 1.0f, freqAPot.Value() + freqACv.Value()));
+  float freqB = lerpf(MIN_BANDPASS_B_FREQ_HZ, MAX_BANDPASS_B_FREQ_HZ, clampf(0.0f, 1.0f, freqBPot.Value() + freqBCv.Value()));
+  float freqC = lerpf(MIN_BANDPASS_C_FREQ_HZ, MAX_BANDPASS_C_FREQ_HZ, clampf(0.0f, 1.0f, freqCPot.Value() + freqCCv.Value()));
+  float resonance = lerpf(MIN_RESONANCE, MAX_RESONANCE, clampf(0.0f, 1.8f, resonancePot.Value() + resonanceCv.Value()));
 
-  bandpassA.SetFreq(freqA);
-  bandpassB.SetFreq(freqB);
-  bandpassC.SetFreq(freqC);
+  bandpassAL.SetFreq(freqA);
+  bandpassBL.SetFreq(freqB);
+  bandpassCL.SetFreq(freqC);
+  bandpassAR.SetFreq(freqA);
+  bandpassBR.SetFreq(freqB);
+  bandpassCR.SetFreq(freqC);
 
-  bandpassA.SetRes(resonance);
-  bandpassB.SetRes(resonance);
-  bandpassC.SetRes(resonance);
-  
+  bandpassAL.SetRes(resonance);
+  bandpassBL.SetRes(resonance);
+  bandpassCL.SetRes(resonance);
+  bandpassAR.SetRes(resonance);
+  bandpassBR.SetRes(resonance);
+  bandpassCR.SetRes(resonance);
+
   // process audio buffers
   for (size_t i = 0; i < size; i++) {
-    float al = bandpassA.Process(in[0][i]);
-    float bl = bandpassB.Process(in[0][i]);
-    float cl = bandpassC.Process(in[0][i]);
+    float al = bandpassAL.Process(in[0][i]);
+    float bl = bandpassBL.Process(in[0][i]);
+    float cl = bandpassCL.Process(in[0][i]);
 
     float mixL = 0.40f * al + 0.40f * bl + 0.40f * cl;
 
-    float ar = bandpassA.Process(in[1][i]);
-    float br = bandpassB.Process(in[1][i]);
-    float cr = bandpassC.Process(in[1][i]);
+    float ar = bandpassAR.Process(in[1][i]);
+    float br = bandpassBR.Process(in[1][i]);
+    float cr = bandpassCR.Process(in[1][i]);
 
     float mixR = 0.40f * ar + 0.40f * br + 0.40f * cr;
 
@@ -155,13 +160,14 @@ int main(void) {
   freqCCv = hw.controls[6];
   resonanceCv = hw.controls[7];
 
-  bandpassA.Init(sampleRate);
-  bandpassB.Init(sampleRate);
-  bandpassC.Init(sampleRate);
+  bandpassAL.Init(sampleRate);
+  bandpassBL.Init(sampleRate);
+  bandpassCL.Init(sampleRate);
+  bandpassAR.Init(sampleRate);
+  bandpassBR.Init(sampleRate);
+  bandpassCR.Init(sampleRate);
 
-  bandpassA.SetFilterMode(LadderFilter::FilterMode::BP12);
-  bandpassB.SetFilterMode(LadderFilter::FilterMode::BP12);
-  bandpassC.SetFilterMode(LadderFilter::FilterMode::BP12);
+  setFilterMode(LadderFilter::FilterMode::BP12);
 
   DaisyPatchSM::StartLog(false);
   cpuLoad.Init(hw.AudioSampleRate(), hw.AudioBlockSize());
@@ -180,17 +186,22 @@ int main(void) {
 
 void toggleFilterMode() {
   if (filterMode == 0) {
-    bandpassA.SetFilterMode(LadderFilter::FilterMode::BP24);
-    bandpassB.SetFilterMode(LadderFilter::FilterMode::BP24);
-    bandpassC.SetFilterMode(LadderFilter::FilterMode::BP24);
+    setFilterMode(LadderFilter::FilterMode::BP24);
     filterMode = 1;
   }
   else {
-    bandpassA.SetFilterMode(LadderFilter::FilterMode::BP12);
-    bandpassB.SetFilterMode(LadderFilter::FilterMode::BP12);
-    bandpassC.SetFilterMode(LadderFilter::FilterMode::BP12);
+    setFilterMode(LadderFilter::FilterMode::BP12);
     filterMode = 0;
   }
+}
+
+void setFilterMode(LadderFilter::FilterMode mode) {
+  bandpassAL.SetFilterMode(mode);
+  bandpassBL.SetFilterMode(mode);
+  bandpassCL.SetFilterMode(mode);
+  bandpassAR.SetFilterMode(mode);
+  bandpassBR.SetFilterMode(mode);
+  bandpassCR.SetFilterMode(mode);
 }
 
 float clampf(float min, float max, float x) {
