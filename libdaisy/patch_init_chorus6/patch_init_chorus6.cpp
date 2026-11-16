@@ -56,15 +56,12 @@ static DelayLine<float, MAX_DELAY> delayR;
 
 LadderFilter preLpfL;
 LadderFilter preLpfR;
-LadderFilter postLpfL;
-LadderFilter postLpfR;
 Oscillator sinLfoL;
 Oscillator sinLfoR;
 Oscillator triLfoL;
 Oscillator triLfoR;
 
 constexpr float PRE_LPF_FREQ_HZ = 7237.0f;
-constexpr float POST_LPF_FREQ_HZ = 10644.0f;
 
 void toggleMode();
 float clampf(float min, float max, float x);
@@ -156,8 +153,8 @@ void audioCallback(AudioHandle::InputBuffer in, AudioHandle::OutputBuffer out, s
     float dryR = in[1][i];
 
     // read wet from delay line
-    float wetL = postLpfL.Process(delayL.Read());
-    float wetR = postLpfR.Process(delayR.Read());
+    float wetL = delayL.Read();
+    float wetR = delayR.Read();
 
     // write to delay line
     delayL.Write(preLpfL.Process(dryL));
@@ -205,15 +202,11 @@ int main(void) {
   // init left channel
   delayL.Init();
   preLpfL.Init(sampleRate);
-  postLpfL.Init(sampleRate);
   sinLfoL.Init(sampleRate);
   triLfoL.Init(sampleRate);
 
   preLpfL.SetFreq(PRE_LPF_FREQ_HZ);
-  postLpfL.SetFreq(POST_LPF_FREQ_HZ);
-
   preLpfL.SetFilterMode(LadderFilter::FilterMode::LP12);
-  postLpfL.SetFilterMode(LadderFilter::FilterMode::LP12);
 
   sinLfoL.SetWaveform(Oscillator::WAVE_SIN);
   triLfoL.SetWaveform(Oscillator::WAVE_TRI);
@@ -221,15 +214,11 @@ int main(void) {
   // init right channel
   delayR.Init();
   preLpfR.Init(sampleRate);
-  postLpfR.Init(sampleRate);
   sinLfoR.Init(sampleRate);
   triLfoR.Init(sampleRate);
 
   preLpfR.SetFreq(PRE_LPF_FREQ_HZ);
-  postLpfR.SetFreq(POST_LPF_FREQ_HZ);
-
   preLpfR.SetFilterMode(LadderFilter::FilterMode::LP12);
-  postLpfR.SetFilterMode(LadderFilter::FilterMode::LP12);
 
   sinLfoR.SetWaveform(Oscillator::WAVE_SIN);
   triLfoR.SetWaveform(Oscillator::WAVE_TRI);
