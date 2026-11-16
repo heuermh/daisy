@@ -46,12 +46,10 @@ float rate;
 float depth;
 float phase;
 float shape;
-float lastPhase;
+float lfoPhase;
 
 // max delay 20 ms
 #define MAX_DELAY static_cast<size_t>(96000 * 0.020f)
-#define PRE_LPF_FREQ_HZ 7237.0f
-#define POST_LPF_FREQ_HZ 10644.0f
 
 static DelayLine<float, MAX_DELAY> delayL;
 static DelayLine<float, MAX_DELAY> delayR;
@@ -65,10 +63,13 @@ Oscillator sinLfoR;
 Oscillator triLfoL;
 Oscillator triLfoR;
 
+constexpr float PRE_LPF_FREQ_HZ = 7237.0f;
+constexpr float POST_LPF_FREQ_HZ = 10644.0f;
+
 void toggleMode();
 float clampf(float min, float max, float x);
 float lerpf(float min, float max, float x);
-float truncf(float f);
+float round3f(float f);
 float hardClip(float x);
 float softClip(float x);
 
@@ -103,30 +104,36 @@ void audioCallback(AudioHandle::InputBuffer in, AudioHandle::OutputBuffer out, s
   hw.WriteCvOut(CV_OUT_2, hard ? 5.0f : 0.0f);
 
   if (mode == 2) {
-    lastPhase = phase;
-
     // y = 0.0125 * 81^x - 0.0125
-    rate = lerpf(0.001f, 2.0f, 0.0125f * pow(81.0f, clampf(0.0f, 1.0f, ratePot.Value())) - 0.0125f); // 0.001 to 2.0, exp-ish
+    rate = lerpf(0.001f, 2.0f, 0.0125f * powf(81.0f, clampf(0.0f, 1.0f, ratePot.Value() + rateCv.Value())) - 0.0125f); // 0.001 to 2.0, exp-ish
     depth = clampf(0.0f, 3.0f, depthPot.Value() + (depthCv.Value() * 3.0f)); // 0.0 to 3.0, linear
     phase = clampf(0.0f, 1.0f, phasePot.Value() + phaseCv.Value()); // 0.0 to 1.0, linear
     shape = clampf(0.0f, 1.0f, shapePot.Value() + shapeCv.Value()); // 0.0 to 1.0, linear
-
-    triLfoL.SetFreq(rate);
-    triLfoR.SetFreq(rate);
-    sinLfoL.SetFreq(rate);
-    sinLfoR.SetFreq(rate);
 
     triLfoL.SetAmp(depth);
     triLfoR.SetAmp(depth);
     sinLfoL.SetAmp(depth);
     sinLfoR.SetAmp(depth);
-
-    triLfoR.PhaseAdd(phase - lastPhase);
-    sinLfoR.PhaseAdd(phase - lastPhase);
   }
+
+  float phaseInc = rate / sampleRate;
 
   // process audio buffers
   for (size_t i = 0; i < size; i++) {
+
+    // advance lfo phase, right channel is offset by phase
+    lfoPhase += phaseInc;
+    if (lfoPhase >= 1.0f) {
+      lfoPhase -= 1.0f;
+    }
+    float phaseR = lfoPhase + phase;
+    if (phaseR >= 1.0f) {
+      phaseR -= 1.0f;
+    }
+    triLfoL.Reset(lfoPhase);
+    triLfoR.Reset(phaseR);
+    sinLfoL.Reset(lfoPhase);
+    sinLfoR.Reset(phaseR);
 
     // apply lfo to left and right delays
     switch (mode) {
@@ -134,15 +141,14 @@ void audioCallback(AudioHandle::InputBuffer in, AudioHandle::OutputBuffer out, s
     case 1:
       delayL.SetDelay(((triLfoL.Process() + 3.345f) / 1000.0f) * sampleRate);
       delayR.SetDelay(((triLfoR.Process() + 3.345f) / 1000.0f) * sampleRate);
-      sinLfoL.Process();
-      sinLfoR.Process();
       break;
-    case 2:
+    case 2: {
       float shapeL = triLfoL.Process() * shape + sinLfoL.Process() * (1.0f - shape);
       float shapeR = triLfoR.Process() * shape + sinLfoR.Process() * (1.0f - shape);
       delayL.SetDelay(((shapeL + 3.345f) / 1000.0f) * sampleRate);
       delayR.SetDelay(((shapeR + 3.345f) / 1000.0f) * sampleRate);
       break;
+    }
     }
 
     // read dry from input
@@ -150,16 +156,12 @@ void audioCallback(AudioHandle::InputBuffer in, AudioHandle::OutputBuffer out, s
     float dryR = in[1][i];
 
     // read wet from delay line
-    //float wetL = postLpfL.Process(delayL.Read());
-    //float wetR = postLpfR.Process(delayR.Read());
-    float wetL = delayL.Read();
-    float wetR = delayR.Read();
+    float wetL = postLpfL.Process(delayL.Read());
+    float wetR = postLpfR.Process(delayR.Read());
 
     // write to delay line
     delayL.Write(preLpfL.Process(dryL));
     delayR.Write(preLpfR.Process(dryR));
-    //delayL.Write(dryL);
-    //delayR.Write(dryR);
 
     // mix wet and dry
     //float mixL = wetL * 0.5646f + dryL * 0.4354f;
@@ -260,26 +262,23 @@ void toggleMode() {
   switch (mode) {
   case 0:
     // mode I
-    triLfoL.SetFreq(0.4f);
-    triLfoL.Reset(0.0f); // phase
+    rate = 0.4f;
+    phase = 0.5f;
+    lfoPhase = 0.0f;
     triLfoL.SetAmp(1.805f);
-
-    triLfoR.SetFreq(0.4f);
-    triLfoR.Reset(0.5f); // phase
     triLfoR.SetAmp(1.945f);
     break;
   case 1:
     // mode II
-    triLfoL.SetFreq(0.67f);
-    triLfoL.Reset(0.0f); // phase
+    rate = 0.67f;
+    phase = 0.5f;
+    lfoPhase = 0.0f;
     triLfoL.SetAmp(1.805f);
-
-    triLfoR.SetFreq(0.67f);
-    triLfoR.Reset(0.5f); // phase
     triLfoR.SetAmp(1.945f);
     break;
   case 2:
     // manual
+    lfoPhase = 0.0f;
     break;
   }
 }
@@ -298,7 +297,7 @@ float lerpf(float min, float max, float x) {
   return min + (max - min) * x;
 }
 
-float truncf(float f) {
+float round3f(float f) {
   return roundf(f * 1000.0f) / 1000.0f;
 }
 
