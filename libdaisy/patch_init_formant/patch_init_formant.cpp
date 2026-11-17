@@ -49,6 +49,7 @@ LadderFilter bandpassAR;
 LadderFilter bandpassBR;
 LadderFilter bandpassCR;
 
+constexpr float MIX_GAIN = 0.42f;
 constexpr float MIN_BANDPASS_A_FREQ_HZ = 270.0f;
 constexpr float MAX_BANDPASS_A_FREQ_HZ = 730.0f;
 constexpr float MIN_BANDPASS_B_FREQ_HZ = 870.0f;
@@ -121,13 +122,13 @@ void audioCallback(AudioHandle::InputBuffer in, AudioHandle::OutputBuffer out, s
     float bl = bandpassBL.Process(in[0][i]);
     float cl = bandpassCL.Process(in[0][i]);
 
-    float mixL = 0.40f * al + 0.40f * bl + 0.40f * cl;
+    float mixL = MIX_GAIN * al + MIX_GAIN * bl + MIX_GAIN * cl;
 
     float ar = bandpassAR.Process(in[1][i]);
     float br = bandpassBR.Process(in[1][i]);
     float cr = bandpassCR.Process(in[1][i]);
 
-    float mixR = 0.40f * ar + 0.40f * br + 0.40f * cr;
+    float mixR = MIX_GAIN * ar + MIX_GAIN * br + MIX_GAIN * cr;
 
     out[0][i] = hard ? hardClip(mixL) : softClip(mixL);
     out[1][i] = hard ? hardClip(mixR) : softClip(mixR);
