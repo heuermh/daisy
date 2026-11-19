@@ -33,18 +33,21 @@ struct Formant {
   float c;
 };
 
-// from Allen Strange's Electronic Music: Systems, Techniques, and Controls
+// average formant frequencies of ten American English vowels, adult male speakers, from
+// Peterson, G. E. and Barney, H. L. (1952) Control methods used in a study of the vowels.
+// Journal of the Acoustical Society of America 24(2), 175-184. https://doi.org/10.1121/1.1906875
+// as tabulated in Allen Strange's Electronic Music: Systems, Techniques, and Controls
 constexpr Formant FORMANTS[] = {
-  { 270.0f, 1990.0f, 3010.0f },
-  { 390.0f, 1840.0f, 2550.0f },
-  { 530.0f, 1720.0f, 2480.0f },
-  { 660.0f, 1090.0f, 2410.0f },
-  { 730.0f, 1840.0f, 2440.0f },
-  { 570.0f, 1020.0f, 2410.0f },
-  { 440.0f,  870.0f, 2240.0f },
-  { 330.0f, 1190.0f, 2240.0f },
-  { 640.0f, 1350.0f, 2390.0f },
-  { 490.0f, 20000.0f, 1690.0f }
+  { 270.0f, 2290.0f, 3010.0f }, // i, heed
+  { 390.0f, 1990.0f, 2550.0f }, // ɪ, hid
+  { 530.0f, 1840.0f, 2480.0f }, // ɛ, head
+  { 660.0f, 1720.0f, 2410.0f }, // æ, had
+  { 730.0f, 1090.0f, 2440.0f }, // ɑ, hod
+  { 570.0f,  840.0f, 2410.0f }, // ɔ, hawed
+  { 440.0f, 1020.0f, 2240.0f }, // ʊ, hood
+  { 300.0f,  870.0f, 2240.0f }, // u, who'd
+  { 640.0f, 1190.0f, 2390.0f }, // ʌ, hud
+  { 490.0f, 1350.0f, 1690.0f }  // ɝ, heard
 };
 
 constexpr int FORMANTS_SIZE = sizeof(FORMANTS) / sizeof(FORMANTS[0]);
@@ -75,9 +78,9 @@ LadderFilter bandpassCR;
 constexpr float MIX_GAIN = 0.42f;
 constexpr float MIN_BANDPASS_A_FREQ_HZ = 270.0f;
 constexpr float MAX_BANDPASS_A_FREQ_HZ = 730.0f;
-constexpr float MIN_BANDPASS_B_FREQ_HZ = 870.0f;
-constexpr float MAX_BANDPASS_B_FREQ_HZ = 1990.0f;
-constexpr float MIN_BANDPASS_C_FREQ_HZ = 2240.0f;
+constexpr float MIN_BANDPASS_B_FREQ_HZ = 840.0f;
+constexpr float MAX_BANDPASS_B_FREQ_HZ = 2290.0f;
+constexpr float MIN_BANDPASS_C_FREQ_HZ = 1690.0f;
 constexpr float MAX_BANDPASS_C_FREQ_HZ = 3010.0f;
 constexpr float MIN_RESONANCE = 0.0f;
 constexpr float MAX_RESONANCE = 1.8f;
@@ -125,7 +128,7 @@ void audioCallback(AudioHandle::InputBuffer in, AudioHandle::OutputBuffer out, s
   float freqA = lerpf(MIN_BANDPASS_A_FREQ_HZ, MAX_BANDPASS_A_FREQ_HZ, clampf(0.0f, 1.0f, freqAPot.Value() + freqACv.Value()));
   float freqB = lerpf(MIN_BANDPASS_B_FREQ_HZ, MAX_BANDPASS_B_FREQ_HZ, clampf(0.0f, 1.0f, freqBPot.Value() + freqBCv.Value()));
   float freqC = lerpf(MIN_BANDPASS_C_FREQ_HZ, MAX_BANDPASS_C_FREQ_HZ, clampf(0.0f, 1.0f, freqCPot.Value() + freqCCv.Value()));
-  float resonance = lerpf(MIN_RESONANCE, MAX_RESONANCE, clampf(0.0f, 1.8f, resonancePot.Value() + resonanceCv.Value()));
+  float resonance = lerpf(MIN_RESONANCE, MAX_RESONANCE, clampf(0.0f, 1.0f, resonancePot.Value() + resonanceCv.Value()));
 
   // if gate1 is on, snap to nearest formant
   if (gate1.State()) {
