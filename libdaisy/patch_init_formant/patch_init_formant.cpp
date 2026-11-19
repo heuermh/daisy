@@ -33,7 +33,6 @@ struct Formant {
   float c;
 };
 
-// average formant frequencies of ten American English vowels, adult male speakers, from
 // Peterson, G. E. and Barney, H. L. (1952) Control methods used in a study of the vowels.
 // Journal of the Acoustical Society of America 24(2), 175-184. https://doi.org/10.1121/1.1906875
 // as tabulated in Allen Strange's Electronic Music: Systems, Techniques, and Controls
