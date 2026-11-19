@@ -27,16 +27,14 @@ using namespace daisy;
 using namespace daisy::patch_sm;
 using namespace daisysp;
 
-typedef struct {
-  float x;
-  float y;
-  float z;
-} Formant;
-
-constexpr int FORMANTS_SIZE = 10;
+struct Formant {
+  float a;
+  float b;
+  float c;
+};
 
 // from Allen Strange's Electronic Music: Systems, Techniques, and Controls
-Formant FORMANTS[FORMANTS_SIZE] = {
+constexpr Formant FORMANTS[] = {
   { 270.0f, 1990.0f, 3010.0f },
   { 390.0f, 1840.0f, 2550.0f },
   { 530.0f, 1720.0f, 2480.0f },
@@ -48,6 +46,8 @@ Formant FORMANTS[FORMANTS_SIZE] = {
   { 640.0f, 1350.0f, 2390.0f },
   { 490.0f, 20000.0f, 1690.0f }
 };
+
+constexpr int FORMANTS_SIZE = sizeof(FORMANTS) / sizeof(FORMANTS[0]);
 
 DaisyPatchSM hw;
 Switch b7;
@@ -130,9 +130,9 @@ void audioCallback(AudioHandle::InputBuffer in, AudioHandle::OutputBuffer out, s
   // if gate1 is on, snap to nearest formant
   if (gate1.State()) {
     Formant nearest = nearestFormant(freqA, freqB, freqC);
-    freqA = nearest.x;
-    freqB = nearest.y;
-    freqC = nearest.z;
+    freqA = nearest.a;
+    freqB = nearest.b;
+    freqC = nearest.c;
   }
 
   bandpassAL.SetFreq(freqA);
@@ -155,13 +155,13 @@ void audioCallback(AudioHandle::InputBuffer in, AudioHandle::OutputBuffer out, s
     float bl = bandpassBL.Process(in[0][i]);
     float cl = bandpassCL.Process(in[0][i]);
 
-    float mixL = MIX_GAIN * al + MIX_GAIN * bl + MIX_GAIN * cl;
+    float mixL = MIX_GAIN * (al + bl + cl);
 
     float ar = bandpassAR.Process(in[1][i]);
     float br = bandpassBR.Process(in[1][i]);
     float cr = bandpassCR.Process(in[1][i]);
 
-    float mixR = MIX_GAIN * ar + MIX_GAIN * br + MIX_GAIN * cr;
+    float mixR = MIX_GAIN * (ar + br + cr);
 
     out[0][i] = hard ? hardClip(mixL) : softClip(mixL);
     out[1][i] = hard ? hardClip(mixR) : softClip(mixR);
@@ -171,12 +171,12 @@ void audioCallback(AudioHandle::InputBuffer in, AudioHandle::OutputBuffer out, s
 }
 
 int main(void) {
-  // initialize hardware, including SDRAM
+  // initialize hardware
   hw.Init();
   hw.SetAudioSampleRate(SaiHandle::Config::SampleRate::SAI_96KHZ);
   sampleRate = 96000.0f;
 
-  // b7, momentary button B7, toggle mode
+  // b7, momentary button B7, toggle filter slope BP12/BP24
   b7.Init(DaisyPatchSM::B7);
 
   // b8, toggle switch, hard clip/soft clip
@@ -242,10 +242,10 @@ void setFilterMode(LadderFilter::FilterMode mode) {
 }
 
 float distance(Formant a, Formant b) {
-  float dx = a.x - b.x;
-  float dy = a.y - b.y;
-  float dz = a.z - b.z;
-  return (dx * dx) + (dy * dy) + (dz * dz);
+  float da = a.a - b.a;
+  float db = a.b - b.b;
+  float dc = a.c - b.c;
+  return (da * da) + (db * db) + (dc * dc);
 }
 
 Formant nearestFormant(float freqA, float freqB, float freqC) {
