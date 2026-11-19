@@ -27,9 +27,32 @@ using namespace daisy;
 using namespace daisy::patch_sm;
 using namespace daisysp;
 
+typedef struct {
+  float x;
+  float y;
+  float z;
+} Formant;
+
+constexpr int FORMANTS_SIZE = 10;
+
+// from Allen Strange's Electronic Music: Systems, Techniques, and Controls
+Formant FORMANTS[FORMANTS_SIZE] = {
+  { 270.0f, 1990.0f, 3010.0f },
+  { 390.0f, 1840.0f, 2550.0f },
+  { 530.0f, 1720.0f, 2480.0f },
+  { 660.0f, 1090.0f, 2410.0f },
+  { 730.0f, 1840.0f, 2440.0f },
+  { 570.0f, 1020.0f, 2410.0f },
+  { 440.0f,  870.0f, 2240.0f },
+  { 330.0f, 1190.0f, 2240.0f },
+  { 640.0f, 1350.0f, 2390.0f },
+  { 490.0f, 20000.0f, 1690.0f }
+};
+
 DaisyPatchSM hw;
 Switch b7;
 Switch b8;
+GateIn gate1;
 Parameter freqAPot;
 Parameter freqBPot;
 Parameter freqCPot;
@@ -61,6 +84,8 @@ constexpr float MAX_RESONANCE = 1.8f;
 
 void toggleFilterMode();
 void setFilterMode(LadderFilter::FilterMode mode);
+float distance(Formant a, Formant b);
+Formant nearestFormant(float freqA, float freqB, float freqC);
 float clampf(float min, float max, float x);
 float lerpf(float min, float max, float x);
 float hardClip(float x);
@@ -101,6 +126,14 @@ void audioCallback(AudioHandle::InputBuffer in, AudioHandle::OutputBuffer out, s
   float freqB = lerpf(MIN_BANDPASS_B_FREQ_HZ, MAX_BANDPASS_B_FREQ_HZ, clampf(0.0f, 1.0f, freqBPot.Value() + freqBCv.Value()));
   float freqC = lerpf(MIN_BANDPASS_C_FREQ_HZ, MAX_BANDPASS_C_FREQ_HZ, clampf(0.0f, 1.0f, freqCPot.Value() + freqCCv.Value()));
   float resonance = lerpf(MIN_RESONANCE, MAX_RESONANCE, clampf(0.0f, 1.8f, resonancePot.Value() + resonanceCv.Value()));
+
+  // if gate1 is on, snap to nearest formant
+  if (gate1.State()) {
+    Formant nearest = nearestFormant(freqA, freqB, freqC);
+    freqA = nearest.x;
+    freqB = nearest.y;
+    freqC = nearest.z;
+  }
 
   bandpassAL.SetFreq(freqA);
   bandpassBL.SetFreq(freqB);
@@ -148,6 +181,9 @@ int main(void) {
 
   // b8, toggle switch, hard clip/soft clip
   b8.Init(DaisyPatchSM::B8);
+
+  // gate1, snap to nearest formant
+  gate1 = hw.gate_in_1;
 
   // four knobs, freqA freqB freqC resonance
   freqAPot.Init(hw.controls[0], 0.0f, 1.0f, Parameter::LINEAR);
@@ -203,6 +239,28 @@ void setFilterMode(LadderFilter::FilterMode mode) {
   bandpassAR.SetFilterMode(mode);
   bandpassBR.SetFilterMode(mode);
   bandpassCR.SetFilterMode(mode);
+}
+
+float distance(Formant a, Formant b) {
+  float dx = a.x - b.x;
+  float dy = a.y - b.y;
+  float dz = a.z - b.z;
+  return (dx * dx) + (dy * dy) + (dz * dz);
+}
+
+Formant nearestFormant(float freqA, float freqB, float freqC) {
+  Formant nearest = FORMANTS[0];
+  Formant target = { freqA, freqB, freqC };
+  float min = distance(FORMANTS[0], target);
+
+  for (int i = 1; i < FORMANTS_SIZE; i++) {
+    float d = distance(FORMANTS[i], target);
+    if (d < min) {
+      min = d;
+      nearest = FORMANTS[i];
+    }
+  }
+  return nearest;
 }
 
 float clampf(float min, float max, float x) {
